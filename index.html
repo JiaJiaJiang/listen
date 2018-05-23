@@ -1,0 +1,249 @@
+<title>listen</title>
+<meta charset="utf-8">
+<style>
+html{background: #000;}
+#control{position: fixed;z-index: 999;width:100%;top:0;left:0;background: #fff;opacity: 0;padding: 0.1em;}
+#control:hover{opacity: .9!important;}
+.FixTop{opacity: .2!important;}
+#control>span:not(:first-child){border-left: 1px solid #ccc;margin-left: 0.1em;padding-left: 0.4em;}
+span[title],label,input[type='radio']{cursor: pointer;}
+form{display: inline-block;margin: 0;}
+[name='musicFile']{width:300px;}
+#audio{width:100%;}
+canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
+</style>
+<script src="listen.js"></script>
+
+<canvas id="fre_canvas"></canvas>
+<canvas id="wave_canvas"></canvas>
+<div id="control">
+	<span>
+		fft size:<input id="fftSize" type="text" pattern="^\d+$" name="fftSize" value='32' style="width: 6em;" max="32768" min="2"><span title="must be power of 2, between 32 and 32768"> ⚠️</span>
+	</span>
+	<span>
+		<form id="freForm">
+			frequency:
+			<label><input type="radio" name="fre" value="none">none</label>
+			<label><input type="radio" name="fre" value="bar">bar</label>
+			<label><input type="radio" name="fre" value="waterfall">waterfall</label>
+		</form>
+	</span>
+	<span>wave:
+		<form id="waveForm">
+			<label><input type="radio" name="wave" value="on">on</label>
+			<label><input type="radio" name="wave" value="off">off</label>
+		</form>
+	</span>
+	<span>source:
+		<form id="source">
+			<label><input type="radio" name="source" value="mic">mic</label>
+			<label><input type="radio" name="source" value="music">music</label>
+		</form>
+	</span>
+	<span>©<a href="https://luojia.me" target="_blank">luojia</a></span>
+	<span title="fixed" id="fixTopControl">📌</span>
+	<div id="musicControl">
+		<input type="file" name="musicFile">
+		<audio id="audio" controls></audio>
+	</div>
+</div>
+
+
+<script>
+//get all eles with an id
+var eles={};
+[...document.querySelectorAll('[id]')].forEach(e=>eles[e.id]=e);
+
+try{
+	var audioCtx = new AudioContext();
+}catch(e){
+	alert('Your browser doesnt support AudioContext');
+	throw('abort');
+}
+
+//vars
+var aPack=new AnalyserPack({fftSize:Number(eles.fftSize.value),audioCtx});
+var freCtx=eles.fre_canvas.getContext('2d'),
+	waveCtx=eles.wave_canvas.getContext('2d');
+var connectedSource=null;
+var visuals={
+	wave:new Wave({analyserPack:aPack}),
+	waterfall:new Waterfall({analyserPack:aPack}),
+	bar:new Bar({analyserPack:aPack}),
+}
+
+var querys=getQuery();
+// var sourceDefined=false;
+
+
+if(querys.source=='music'){
+	eles.source.source.value='music';
+	setSource('music');
+}else if(!querys.source || querys.source=='mic'){
+	eles.source.source.value='mic';
+	eles.musicControl.hidden=true;
+	setSource('mic');
+}
+
+//events
+window.addEventListener('resize',canvasSize);
+eles.control.addEventListener('change',e=>{//listen all changes
+	console.log('input change',e);
+	var T=e.target;
+	switch(T.name){
+		case 'fre':
+			setFreMode(T.value);
+			return;
+		case 'wave':
+			setWaveMode(T.value);
+			return;
+		case 'fftSize':
+			const v=Number(T.value);
+			if(!(v>=32&&v<=32768)){
+				alert('range: 32 to 32768');
+				return;
+			}
+			if(v.toString(2).match(/^10+$/)){
+				setFFT(v);
+			}else{
+				alert('the number must be power of 2');
+			}
+			return;
+		case 'source':
+			querys.source=T.value;
+			location.search=`?${formQuery()}`;
+			return;
+		case 'musicFile':
+			eles.audio.src=URL.createObjectURL(T.files[0]);
+			eles.audio.play();
+			return;
+		default:
+			console.warn('unhandled change event');
+	}
+});
+eles.fixTopControl.addEventListener('click',e=>{//fix button
+	classToggle(eles.control,'FixTop');
+});
+
+//funcs
+function getQuery(){
+	const list=location.search.substr(1).split('&');
+	const obj={};
+	for(let q of list){
+		let i=q.indexOf('=');
+		if(i>=0){
+			obj[q.substring(0,i)]=q.substr(i+1);
+		}else{
+			obj[q]='';
+		}
+	}
+	return obj;
+}
+function formQuery(){
+	let list=[];
+	for(let s in querys){
+		if(querys[s])list.push(`${s}=${querys[s]}`);
+		else{list.push(s);}
+	}
+	return list.join('&');
+}
+function canvasSize(){
+	eles.wave_canvas.width=eles.wave_canvas.offsetWidth;
+	eles.fre_canvas.height=eles.wave_canvas.height=eles.wave_canvas.offsetHeight;
+}
+function setFFT(v){
+	console.log(v);
+	aPack.analyser.fftSize=v;
+	eles.fre_canvas.width=v/2;
+}
+function setSource(s){
+	switch(s){
+		case 'mic':{
+			var p = navigator.mediaDevices.getUserMedia({audio:true});
+			p.then(function(mediaStream){
+				let ms=audioCtx.createMediaStreamSource(mediaStream);
+				ms.connect(aPack.analyser);
+				connectedSource=ms;
+			}).catch(function(err) {console.log(err);});
+			break;
+		};
+		case 'music':{
+			let ms=audioCtx.createMediaElementSource(audio);
+			let gainNode = audioCtx.createGain();
+			ms.connect(aPack.analyser);
+			ms.connect(gainNode);
+			gainNode.connect(audioCtx.destination);
+			connectedSource=ms;
+			break;
+		};
+		default:alert('unsupported source');
+	}
+}
+function classToggle(ele,c){
+	if(ele.classList.contains(c)){
+		ele.classList.remove(c);
+	}else{
+		ele.classList.add(c);
+	}
+}
+function setFreMode(m){
+	freCtx.clearRect(0,0,eles.fre_canvas.width,eles.fre_canvas.height);
+	if(m!=='none'){//on
+		eles.fre_canvas.hidden=false;
+	}else{
+		eles.fre_canvas.hidden=true;
+	}
+}
+function setWaveMode(m){
+	if(m!=='off'){//on
+		eles.wave_canvas.hidden=false;
+	}else{
+		eles.wave_canvas.hidden=true;
+	}
+}
+//draw the canvas
+function drawLoop(){
+	let w=eles.wave_canvas.width,
+		h=eles.wave_canvas.height;
+	if(!eles.fre_canvas.hidden && aPack.frequencyArray!==null){//draw frequency
+		if(eles.freForm.fre.value==='waterfall'){
+			visuals.waterfall.draw(eles.fre_canvas,freCtx);
+		}else{
+			visuals.bar.draw(eles.fre_canvas,freCtx);
+		}
+	}
+	if(!eles.wave_canvas.hidden && aPack.waveArray!==null){//draw wave
+		visuals.wave.draw(eles.wave_canvas,waveCtx);
+	}
+	requestAnimationFrame(drawLoop);
+}
+requestAnimationFrame(drawLoop);
+
+
+
+
+//prepare data
+function idelLoop(){
+	if(!eles.fre_canvas.hidden){
+		aPack.collectFre();
+		if(eles.freForm.fre.value==='waterfall'){
+			visuals.waterfall.map();
+		}
+	}
+	if(!eles.wave_canvas.hidden)
+		aPack.collectWave();
+	requestIdleCallback(idelLoop);
+}
+requestIdleCallback(idelLoop);
+
+
+
+//init
+canvasSize();
+eles.fixTopControl.click();
+eles.freForm.fre[2].click();
+eles.waveForm.wave[0].click();
+setFFT(eles.fftSize.value=2048);
+
+
+</script>
