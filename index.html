@@ -71,7 +71,7 @@ var visuals={
 	waterfall:new Waterfall({analyserPack:aPack}),
 	bar:new Bar({analyserPack:aPack}),
 }
-
+var paused=true;
 var querys=getQuery();
 // var sourceDefined=false;
 
@@ -79,9 +79,12 @@ var querys=getQuery();
 if(querys.source=='music'){
 	eles.source.source.value='music';
 	setSource('music');
+	eles.audio.addEventListener('play',e=>paused=false);
+	eles.audio.addEventListener('pause',e=>paused=true);
 }else if(!querys.source || querys.source=='mic'){
 	eles.source.source.value='mic';
 	eles.musicControl.hidden=true;
+	paused=false;
 	setSource('mic');
 }
 
@@ -203,17 +206,19 @@ function setWaveMode(m){
 }
 //draw the canvas
 function drawLoop(){
-	let w=eles.wave_canvas.width,
-		h=eles.wave_canvas.height;
-	if(!eles.fre_canvas.hidden && aPack.frequencyArray!==null){//draw frequency
-		if(eles.freForm.fre.value==='waterfall'){
-			visuals.waterfall.draw(eles.fre_canvas,freCtx);
-		}else{
-			visuals.bar.draw(eles.fre_canvas,freCtx);
+	if(!paused){
+		let w=eles.wave_canvas.width,
+			h=eles.wave_canvas.height;
+		if(!eles.fre_canvas.hidden && aPack.frequencyArray!==null){//draw frequency
+			if(eles.freForm.fre.value==='waterfall'){
+				visuals.waterfall.draw(eles.fre_canvas,freCtx);
+			}else{
+				visuals.bar.draw(eles.fre_canvas,freCtx);
+			}
 		}
-	}
-	if(!eles.wave_canvas.hidden && aPack.waveArray!==null){//draw wave
-		visuals.wave.draw(eles.wave_canvas,waveCtx);
+		if(!eles.wave_canvas.hidden && aPack.waveArray!==null){//draw wave
+			visuals.wave.draw(eles.wave_canvas,waveCtx);
+		}
 	}
 	requestAnimationFrame(drawLoop);
 }
@@ -224,14 +229,16 @@ requestAnimationFrame(drawLoop);
 
 //prepare data
 function idelLoop(){
-	if(!eles.fre_canvas.hidden){
-		aPack.collectFre();
-		if(eles.freForm.fre.value==='waterfall'){
-			visuals.waterfall.map();
+	if(!paused){
+		if(!eles.fre_canvas.hidden){
+			aPack.collectFre();
+			if(eles.freForm.fre.value==='waterfall'){
+				visuals.waterfall.map();
+			}
 		}
+		if(!eles.wave_canvas.hidden)
+			aPack.collectWave();
 	}
-	if(!eles.wave_canvas.hidden)
-		aPack.collectWave();
 	requestIdleCallback(idelLoop);
 }
 requestIdleCallback(idelLoop);
