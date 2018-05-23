@@ -74,14 +74,15 @@ class Bar extends Visual{
 		let freArray=this.analyserPack.frequencyArray,
 			h=canvas.height,
 			max_h=.9*h;
+		if(max_h>300)max_h=300;
 		ctx.clearRect(0,0,canvas.width,canvas.height);
 		ctx.beginPath();
-		ctx.fillStyle = "#555";
+		ctx.strokeStyle = "#555";
 		for(let i=freArray.length;i--;){
-			let height=(freArray[i]/255)*max_h;
-			ctx.rect(i,h-height,1,height);
+			ctx.moveTo(i,h-(freArray[i]/255)*max_h);
+			ctx.lineTo(i,h);
 		}
-		ctx.fill();
+		ctx.stroke();
 	}
 }
 
