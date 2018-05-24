@@ -97,6 +97,7 @@ if(querys.source=='music'){
 
 //events
 window.addEventListener('resize',canvasSize);
+window.addEventListener('wheel',e=>e.preventDefault());
 eles.control.addEventListener('change',e=>{//listen all changes
 	console.log('input change',e);
 	var T=e.target;
@@ -166,8 +167,10 @@ function formQuery(){
 	return list.join('&');
 }
 function canvasSize(){
-	eles.wave_canvas.width=eles.wave_canvas.offsetWidth;
-	eles.fre_canvas.height=eles.wave_canvas.height=eles.wave_canvas.offsetHeight;
+	requestAnimationFrame(function(){
+		eles.wave_canvas.width=eles.wave_canvas.offsetWidth;
+		eles.fre_canvas.height=eles.wave_canvas.height=eles.wave_canvas.offsetHeight;
+	})
 }
 function setFFT(v){
 	console.log(v);
