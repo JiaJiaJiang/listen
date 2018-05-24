@@ -152,7 +152,8 @@ function formQuery(){
 }
 function canvasSize(){
 	eles.wave_canvas.width=eles.wave_canvas.offsetWidth;
-	eles.fre_canvas.height=eles.wave_canvas.height=eles.wave_canvas.offsetHeight;
+	eles.wave_canvas.height=eles.wave_canvas.offsetHeight;
+	if(eles.fre_canvas.height!=eles.fre_canvas.offsetHeight)eles.fre_canvas.height=eles.fre_canvas.offsetHeight;
 }
 function setFFT(v){
 	console.log(v);
@@ -192,6 +193,7 @@ function classToggle(ele,c){
 function setFreMode(m){
 	freCtx.clearRect(0,0,eles.fre_canvas.width,eles.fre_canvas.height);
 	if(m!=='none'){//on
+		canvasSize();
 		eles.fre_canvas.hidden=false;
 	}else{
 		eles.fre_canvas.hidden=true;
@@ -199,6 +201,7 @@ function setFreMode(m){
 }
 function setWaveMode(m){
 	if(m!=='off'){//on
+		canvasSize();
 		eles.wave_canvas.hidden=false;
 	}else{
 		eles.wave_canvas.hidden=true;
