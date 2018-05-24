@@ -28,6 +28,11 @@ canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
 			<label><input type="radio" name="fre" value="waterfall">waterfall</label>
 		</form>
 	</span>
+	<span>
+			min frequency:
+			<input type="range" name="lowerLimit"  id="lowerLimit" min="0" max="255" step="1" value="0" style="height: 1em;">
+			<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="0" max="255" step="1" value="0" style="width: : 4em;">
+	</span>
 	<span>wave:
 		<form id="waveForm">
 			<label><input type="radio" name="wave" value="on">on</label>
@@ -41,6 +46,7 @@ canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
 		</form>
 	</span>
 	<span>©<a href="https://luojia.me" target="_blank">luojia</a></span>
+	<span>git:<a href="https://coding.net/u/luojia/p/listen/gite" target="_blank">coding.net</a></span>
 	<span title="fixed" id="fixTopControl">📌</span>
 	<div id="musicControl">
 		<input type="file" name="musicFile">
@@ -73,6 +79,7 @@ var visuals={
 }
 var paused=true;
 var querys=getQuery();
+var lowerLimit=0;
 // var sourceDefined=false;
 
 
@@ -120,6 +127,14 @@ eles.control.addEventListener('change',e=>{//listen all changes
 			eles.audio.src=URL.createObjectURL(T.files[0]);
 			eles.audio.play();
 			return;
+		case 'lowerLimit':
+			eles.lowerLimitNum.value=T.value;
+			lowerLimit=Number(T.value);
+			break;
+		case 'lowerLimitNum':
+			eles.lowerLimit.value=T.value;
+			lowerLimit=Number(T.value);
+			break;
 		default:
 			console.warn('unhandled change event');
 	}
