@@ -51,6 +51,7 @@ class Waterfall extends Visual{
 		let freArr=this.analyserPack.frequencyArray,
 			dataArr=this.freImageDataArray;
 		for(let i=this.dataCount;i--;){
+			if(freArr[i]<lowerLimit)freArr[i]=0;
 			let v=freArr[i]*3;
 			dataArr[i*4]=v;
 			v=v-dataArr[i*4];
@@ -79,6 +80,7 @@ class Bar extends Visual{
 		ctx.beginPath();
 		ctx.strokeStyle = "#555";
 		for(let i=freArray.length;i--;){
+			if(freArray[i]<lowerLimit)continue;
 			ctx.moveTo(i,h-(freArray[i]/255)*max_h);
 			ctx.lineTo(i,h);
 		}
