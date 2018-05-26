@@ -37,6 +37,10 @@ class Waterfall extends Visual{
 	constructor({analyserPack}={}){
 		super({analyserPack});
 		this.setArrays();
+		this.bufferCanvas=document.createElement('canvas');
+		this.bufferCanvas.height=1;
+		this.bufferCtx=this.bufferCanvas.getContext('2d');
+		this.bufferMode=false;
 	}
 	setArrays(){
 		this.freImageDataArray=new Uint8ClampedArray(this.dataCount*4);
@@ -45,13 +49,26 @@ class Waterfall extends Visual{
 			this.freImageDataArray[i*4+3]=255;
 		}
 	}
-	map(){
+	map(canvas){
 		if(this.freNewImageData.width!==this.dataCount)
 			this.setArrays();
 		let freArr=this.analyserPack.frequencyArray,
-			dataArr=this.freImageDataArray;
-		for(let i=this.dataCount;i--;){
-			if(freArr[i]<lowerLimit)freArr[i]=0;
+			dataArr=this.freImageDataArray,
+			dataCount=this.dataCount;
+		/*if(dataCount>canvas.width){
+			let r=freArr.length/canvas.width,
+				scale=canvas.width/dataCount;
+			for(let i=freArr.length;i--;){
+				freArr[Math.round(i/r)]+=freArr[i]*scale;
+			}
+			dataCount=canvas.width;
+		}*/
+
+		for(let i=dataCount;i--;){
+			if(freArr[i]<lowerLimit){
+				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
+				continue;
+			}
 			if(freArr[i]===0){
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
@@ -63,11 +80,29 @@ class Waterfall extends Visual{
 			v=v-dataArr[i*4+1];
 			dataArr[i*4+2]=v;
 		}
-		return this.freNewImageData;
+		if(this.bufferMode)
+			this.bufferCtx.putImageData(this.freNewImageData,0,0);
+	}
+	canvasSize(canvas){
+		if(canvas.height!=canvas.offsetHeight)canvas.height=canvas.offsetHeight;
+		if(canvas.offsetWidth<this.dataCount){
+			canvas.width=canvas.offsetWidth;
+			this.bufferCanvas.width=this.dataCount;
+			this.bufferMode=true;
+		}
+		else{
+			canvas.width=this.dataCount;
+			this.bufferMode=false;
+		}
+
 	}
 	draw(canvas,ctx){
 		ctx.drawImage(canvas,0,-1);
-		ctx.putImageData(this.freNewImageData,0,canvas.height-1);
+		if(this.bufferMode){
+			ctx.drawImage(this.bufferCanvas,0,canvas.height-1,canvas.width,1);
+		}else{
+			ctx.putImageData(this.freNewImageData,0,canvas.height-1);
+		}
 	}
 }
 
@@ -90,6 +125,10 @@ class Bar extends Visual{
 		}
 		ctx.stroke();
 	}
+	canvasSize(canvas){
+		if(canvas.height!=canvas.offsetHeight)canvas.height=canvas.offsetHeight;
+		canvas.width=this.dataCount;
+	}
 }
 
 class Wave extends Visual{
@@ -110,5 +149,9 @@ class Wave extends Visual{
 			ctx.lineTo(i/wave_distance,half_h+max_h*waveArray[i]);
 		}
 		ctx.stroke();
+	}
+	canvasSize(canvas){
+		canvas.width=canvas.offsetWidth;
+		canvas.height=canvas.offsetHeight;
 	}
 }

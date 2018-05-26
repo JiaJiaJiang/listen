@@ -77,6 +77,8 @@ let gainNode = audioCtx.createGain();
 gainNode.connect(audioCtx.destination);
 let musicSource=audioCtx.createMediaElementSource(eles.audio);
 
+let freMode=null,
+	waveMode=null;
 
 var visuals={
 	wave:new Wave({analyserPack:aPack}),
@@ -89,17 +91,10 @@ var lowerLimit=0;
 // var sourceDefined=false;
 
 
-if(querys.source=='music'){
-	eles.source.source.value='music';
-	setSource('music');
-	eles.audio.addEventListener('play',e=>paused=false);
-	eles.audio.addEventListener('pause',e=>paused=true);
-}else if(!querys.source || querys.source=='mic'){
-	eles.source.source.value='mic';
-	setSource('mic');
-}
 
 //events
+eles.audio.addEventListener('play',e=>paused=false);
+eles.audio.addEventListener('pause',e=>paused=true);
 window.addEventListener('resize',canvasSize);
 window.addEventListener('load',canvasSize);
 window.addEventListener('wheel',e=>e.preventDefault());
@@ -176,14 +171,14 @@ function formQuery(){
 	return list.join('&');
 }
 function canvasSize(){
-	eles.wave_canvas.width=eles.wave_canvas.offsetWidth;
-	eles.wave_canvas.height=eles.wave_canvas.offsetHeight;
-	if(eles.fre_canvas.height!=eles.fre_canvas.offsetHeight)eles.fre_canvas.height=eles.fre_canvas.offsetHeight;
+	freMode&&freMode.canvasSize(fre_canvas);
+	waveMode&&waveMode.canvasSize(wave_canvas);
 }
 function setFFT(v){
 	console.log(v);
 	aPack.analyser.fftSize=v;
-	eles.fre_canvas.width=v/2;
+	// eles.fre_canvas.width=v/2;
+	canvasSize();
 }
 var unsetSource;
 function setSource(s){
@@ -193,6 +188,7 @@ function setSource(s){
 	}
 	switch(s){
 		case 'mic':{
+			eles.source.source.value='mic';
 			paused=false;
 			eles.musicControl.hidden=true;
 			navigator.mediaDevices.getUserMedia({audio:true})
@@ -210,6 +206,7 @@ function setSource(s){
 			break;
 		};
 		case 'music':{
+			eles.source.source.value='music';
 			paused=true;
 			eles.musicControl.hidden=false;
 			musicSource.connect(aPack.analyser);
@@ -234,18 +231,22 @@ function classToggle(ele,c){
 function setFreMode(m){
 	freCtx.clearRect(0,0,eles.fre_canvas.width,eles.fre_canvas.height);
 	if(m!=='none'){//on
-		canvasSize();
 		eles.fre_canvas.hidden=false;
+		freMode=visuals[m];
+		freMode.canvasSize(fre_canvas);
 	}else{
 		eles.fre_canvas.hidden=true;
+		freMode=null;
 	}
 }
 function setWaveMode(m){
 	if(m!=='off'){//on
-		canvasSize();
 		eles.wave_canvas.hidden=false;
+		waveMode=visuals['wave'];
+		waveMode.canvasSize(wave_canvas);
 	}else{
 		eles.wave_canvas.hidden=true;
+		waveMode=null;
 	}
 }
 //draw the canvas
@@ -253,14 +254,15 @@ function drawLoop(){
 	if(!paused){
 		let w=eles.wave_canvas.width,
 			h=eles.wave_canvas.height;
-		if(!eles.fre_canvas.hidden && aPack.frequencyArray!==null){//draw frequency
-			if(eles.freForm.fre.value==='waterfall'){
+		if(freMode && aPack.frequencyArray!==null){//draw frequency
+			freMode.draw(eles.fre_canvas,freCtx);
+			/*if(eles.freForm.fre.value==='waterfall'){
 				visuals.waterfall.draw(eles.fre_canvas,freCtx);
 			}else{
 				visuals.bar.draw(eles.fre_canvas,freCtx);
-			}
+			}*/
 		}
-		if(!eles.wave_canvas.hidden && aPack.waveArray!==null){//draw wave
+		if(waveMode && aPack.waveArray!==null){//draw wave
 			visuals.wave.draw(eles.wave_canvas,waveCtx);
 		}
 	}
@@ -277,7 +279,7 @@ function idelLoop(){
 		if(!eles.fre_canvas.hidden){
 			aPack.collectFre();
 			if(eles.freForm.fre.value==='waterfall'){
-				visuals.waterfall.map();
+				visuals.waterfall.map(fre_canvas);
 			}
 		}
 		if(!eles.wave_canvas.hidden)
@@ -290,6 +292,7 @@ requestIdleCallback(idelLoop);
 
 
 //init
+setSource(querys.source||'mic');
 eles.fixTopControl.click();
 eles.freForm.fre[2].click();
 eles.waveForm.wave[0].click();
