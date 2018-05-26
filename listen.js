@@ -52,6 +52,10 @@ class Waterfall extends Visual{
 			dataArr=this.freImageDataArray;
 		for(let i=this.dataCount;i--;){
 			if(freArr[i]<lowerLimit)freArr[i]=0;
+			if(freArr[i]===0){
+				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
+				continue;
+			}
 			let v=freArr[i]*3;
 			dataArr[i*4]=v;
 			v=v-dataArr[i*4];

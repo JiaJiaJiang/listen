@@ -72,7 +72,12 @@ try{
 var aPack=new AnalyserPack({fftSize:Number(eles.fftSize.value),audioCtx});
 var freCtx=eles.fre_canvas.getContext('2d'),
 	waveCtx=eles.wave_canvas.getContext('2d');
-var connectedSource=null;
+
+let gainNode = audioCtx.createGain();
+gainNode.connect(audioCtx.destination);
+let musicSource=audioCtx.createMediaElementSource(eles.audio);
+
+
 var visuals={
 	wave:new Wave({analyserPack:aPack}),
 	waterfall:new Waterfall({analyserPack:aPack}),
@@ -91,13 +96,12 @@ if(querys.source=='music'){
 	eles.audio.addEventListener('pause',e=>paused=true);
 }else if(!querys.source || querys.source=='mic'){
 	eles.source.source.value='mic';
-	eles.musicControl.hidden=true;
-	paused=false;
 	setSource('mic');
 }
 
 //events
 window.addEventListener('resize',canvasSize);
+window.addEventListener('load',canvasSize);
 window.addEventListener('wheel',e=>e.preventDefault());
 eles.control.addEventListener('change',e=>{//listen all changes
 	console.log('input change',e);
@@ -123,7 +127,8 @@ eles.control.addEventListener('change',e=>{//listen all changes
 			return;
 		case 'source':
 			querys.source=T.value;
-			location.search=`?${formQuery()}`;
+			location.hash=`#${formQuery()}`;
+			setSource(T.value);
 			return;
 		case 'musicFile':
 			eles.audio.src=URL.createObjectURL(T.files[0]);
@@ -147,7 +152,8 @@ eles.fixTopControl.addEventListener('click',e=>{//fix button
 
 //funcs
 function getQuery(){
-	const list=location.search.substr(1).split('&');
+	const list=location.hash.substr(1).split('&');
+	console.log('args',list)
 	const obj={};
 	for(let q of list){
 		let i=q.indexOf('=');
@@ -161,8 +167,10 @@ function getQuery(){
 }
 function formQuery(){
 	let list=[];
+	console.log(' form args',list)
 	for(let s in querys){
 		if(querys[s])list.push(`${s}=${querys[s]}`);
+		else if(!s){}
 		else{list.push(s);}
 	}
 	return list.join('&');
@@ -177,24 +185,40 @@ function setFFT(v){
 	aPack.analyser.fftSize=v;
 	eles.fre_canvas.width=v/2;
 }
+var unsetSource;
 function setSource(s){
+	if(unsetSource){
+		unsetSource();
+		unsetSource=null;
+	}
 	switch(s){
 		case 'mic':{
-			var p = navigator.mediaDevices.getUserMedia({audio:true});
-			p.then(function(mediaStream){
+			paused=false;
+			eles.musicControl.hidden=true;
+			navigator.mediaDevices.getUserMedia({audio:true})
+			.then(function(mediaStream){
 				let ms=audioCtx.createMediaStreamSource(mediaStream);
 				ms.connect(aPack.analyser);
-				connectedSource=ms;
+				console.log('tracks',ms.mediaStream.getTracks())
+				unsetSource=()=>{
+					ms.disconnect(aPack.analyser);
+					for(let t of ms.mediaStream.getTracks()){
+						t.stop();
+					}
+				}
 			}).catch(function(err) {console.log(err);});
 			break;
 		};
 		case 'music':{
-			let ms=audioCtx.createMediaElementSource(audio);
-			let gainNode = audioCtx.createGain();
-			ms.connect(aPack.analyser);
-			ms.connect(gainNode);
-			gainNode.connect(audioCtx.destination);
-			connectedSource=ms;
+			paused=true;
+			eles.musicControl.hidden=false;
+			musicSource.connect(aPack.analyser);
+			musicSource.connect(gainNode);
+			unsetSource=()=>{
+				eles.audio.pause();
+				musicSource.disconnect(aPack.analyser);
+				musicSource.disconnect(gainNode);
+			}
 			break;
 		};
 		default:alert('unsupported source');
@@ -266,7 +290,6 @@ requestIdleCallback(idelLoop);
 
 
 //init
-canvasSize();
 eles.fixTopControl.click();
 eles.freForm.fre[2].click();
 eles.waveForm.wave[0].click();
