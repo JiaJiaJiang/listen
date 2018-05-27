@@ -10,12 +10,14 @@ class AnalyserPack{
 	collectFre(){
 		if(!this.frequencyArray || this.frequencyArray.length!==this.analyser.frequencyBinCount)
 			this.frequencyArray=new Uint8Array(this.analyser.frequencyBinCount);
-		this.analyser.getByteFrequencyData(this.frequencyArray);
+		if(this.frequencyArray)
+			this.analyser.getByteFrequencyData(this.frequencyArray);
 	}
 	collectWave(){
-		if(!this.waveArray || this.waveArray.length!==this.analyser.frequencyBinCount)
-			this.waveArray=new Float32Array(this.analyser.frequencyBinCount);
-		this.analyser.getFloatTimeDomainData(this.waveArray);
+		/*if(!this.waveArray || this.waveArray.length!==this.analyser.fftSize)
+			this.waveArray=new Float32Array(this.analyser.fftSize);*/
+		if(this.waveArray )
+			this.analyser.getFloatTimeDomainData(this.waveArray);
 	}
 }
 
@@ -153,5 +155,10 @@ class Wave extends Visual{
 	canvasSize(canvas){
 		canvas.width=canvas.offsetWidth;
 		canvas.height=canvas.offsetHeight;
+		if(canvas.width<this.analyserPack.analyser.fftSize){
+			this.analyserPack.waveArray=new Float32Array(canvas.width);
+		}else{
+			this.analyserPack.waveArray=new Float32Array(this.analyserPack.analyser.fftSize);
+		}
 	}
 }
