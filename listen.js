@@ -14,8 +14,8 @@ class AnalyserPack{
 			this.analyser.getByteFrequencyData(this.frequencyArray);
 	}
 	collectWave(){
-		/*if(!this.waveArray || this.waveArray.length!==this.analyser.fftSize)
-			this.waveArray=new Float32Array(this.analyser.fftSize);*/
+		if(!this.waveArray || this.waveArray.length!==this.analyser.fftSize)
+			this.waveArray=new Float32Array(this.analyser.fftSize);
 		if(this.waveArray )
 			this.analyser.getFloatTimeDomainData(this.waveArray);
 	}
@@ -57,14 +57,6 @@ class Waterfall extends Visual{
 		let freArr=this.analyserPack.frequencyArray,
 			dataArr=this.freImageDataArray,
 			dataCount=this.dataCount;
-		/*if(dataCount>canvas.width){
-			let r=freArr.length/canvas.width,
-				scale=canvas.width/dataCount;
-			for(let i=freArr.length;i--;){
-				freArr[Math.round(i/r)]+=freArr[i]*scale;
-			}
-			dataCount=canvas.width;
-		}*/
 
 		for(let i=dataCount;i--;){
 			if(freArr[i]<lowerLimit){
@@ -139,26 +131,26 @@ class Wave extends Visual{
 	}
 	draw(canvas,ctx){
 		let waveArray=this.analyserPack.waveArray,
-			wave_distance=(waveArray.length-1)/canvas.width,
 			max_h=.8*canvas.height,
 			half_h=canvas.height/2;
 		if(max_h>300)max_h=300;
 		ctx.clearRect(0,0,canvas.width,canvas.height);
 		ctx.beginPath();
 		ctx.strokeStyle = "rgba(250, 250, 250, 0.97)";
-		ctx.moveTo(0,half_h+max_h*waveArray[0]);
-		for (var i = 1; i < waveArray.length; i++) {
-			ctx.lineTo(i/wave_distance,half_h+max_h*waveArray[i]);
+		let dataLength;
+		if(canvas.width<this.analyserPack.analyser.fftSize){
+			dataLength=canvas.width;
+		}else{
+			dataLength=this.analyserPack.analyser.fftSize;
+		}
+		ctx.moveTo(0,half_h+max_h*waveArray[waveArray.length-dataLength]);
+		for (var i =1,dataInd=waveArray.length-dataLength; dataInd < waveArray.length; i++,dataInd++) {
+			ctx.lineTo(i,half_h+max_h*waveArray[dataInd]);
 		}
 		ctx.stroke();
 	}
 	canvasSize(canvas){
 		canvas.width=canvas.offsetWidth;
 		canvas.height=canvas.offsetHeight;
-		if(canvas.width<this.analyserPack.analyser.fftSize){
-			this.analyserPack.waveArray=new Float32Array(canvas.width);
-		}else{
-			this.analyserPack.waveArray=new Float32Array(this.analyserPack.analyser.fftSize);
-		}
 	}
 }
