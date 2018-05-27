@@ -131,7 +131,7 @@ class Wave extends Visual{
 	}
 	draw(canvas,ctx){
 		let waveArray=this.analyserPack.waveArray,
-			max_h=.8*canvas.height,
+			max_h=canvas.height,
 			half_h=canvas.height/2;
 		if(max_h>300)max_h=300;
 		ctx.clearRect(0,0,canvas.width,canvas.height);

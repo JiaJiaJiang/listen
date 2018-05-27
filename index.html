@@ -12,6 +12,10 @@ form{display: inline-block;margin: 0;}
 [name='musicFile']{width:300px;}
 #audio{width:100%;}
 canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
+#wave_canvas{
+	top:25%;
+	height: 50%;
+}
 </style>
 <script src="listen.js"></script>
 
@@ -88,7 +92,6 @@ var visuals={
 var paused=true;
 var querys=getQuery();
 var lowerLimit=0;
-// var sourceDefined=false;
 
 
 
@@ -256,11 +259,6 @@ function drawLoop(){
 			h=eles.wave_canvas.height;
 		if(freMode && aPack.frequencyArray!==null){//draw frequency
 			freMode.draw(eles.fre_canvas,freCtx);
-			/*if(eles.freForm.fre.value==='waterfall'){
-				visuals.waterfall.draw(eles.fre_canvas,freCtx);
-			}else{
-				visuals.bar.draw(eles.fre_canvas,freCtx);
-			}*/
 		}
 		if(waveMode && aPack.waveArray!==null){//draw wave
 			visuals.wave.draw(eles.wave_canvas,waveCtx);
