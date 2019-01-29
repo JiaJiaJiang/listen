@@ -10,20 +10,25 @@ html{background: #000;}
 span[title],label,input[type='radio']{cursor: pointer;}
 form{display: inline-block;margin: 0;}
 [name='musicFile']{width:300px;}
-#audio{width:100%;}
-canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
-#wave_canvas{
-	top:25%;
-	height: 50%;
-}
+#audio{width:100%;height: 30px;}
+
+#visualGroup{position: absolute;width: 100%;height: 100%;top:0;left: 0;}
+
+#visualGroup.reverse .visualFrame:nth-child(2n){transform: rotateX(180deg);}
+
+.visualFrame{position: absolute;width: 100%;}
+.visualFrame canvas{position: absolute;width: 100%;height: 100%;}
+.visualFrame #waveCanvas{top:15%;height: 70%;}
+.visualFrame #freCanvas{border:.5px dashed #fff3f3b0;box-sizing: border-box;}
+#tip{position: fixed;bottom: 0;right: 0;padding: 1em;background: #fff;cursor: pointer;}
+
 </style>
 <script src="listen.js"></script>
 
-<canvas id="fre_canvas"></canvas>
-<canvas id="wave_canvas"></canvas>
+<div id="canvas_area"></div>
 <div id="control">
 	<span>
-		fft size:<input id="fftSize" type="text" pattern="^\d+$" name="fftSize" value='4096' style="width: 6em;" max="32768" min="2"><span title="must be power of 2, between 32 and 32768"> ⚠️</span>
+		&nbsp;fft size:<input id="fftSize" type="text" pattern="^\d+$" name="fftSize" value='4096' style="width: 6em;" max="32768" min="2"><span title="must be power of 2, between 32 and 32768"> ⚠️</span>
 	</span>
 	<span>
 		<form id="freForm">
@@ -40,8 +45,17 @@ canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
 	</span>
 	<span>wave:
 		<form id="waveForm">
-			<label><input type="radio" name="wave" value="on">on</label>
-			<label><input type="radio" name="wave" value="off">off</label>
+			<label><input type="radio" name="wave" value="wave">wave</label>
+			<label><input type="radio" name="wave" value="none">none</label>
+		</form>
+	</span>
+	<span>
+		<form id="channelMode">
+			channel mode:
+			<label><input type="radio" name="channelmode" value="split">split</label>
+			<label><input type="radio" name="channelmode" value="merge">merge</label>
+			&nbsp;
+			<button onclick="classToggle(visualGroup.container,'reverse');">reverse 2n channels</button>
 		</form>
 	</span>
 	<span>source:
@@ -59,94 +73,12 @@ canvas{position: fixed;top: 0;left: 0;width: 100%;height: 100%;}
 	</div>
 </div>
 
+<div id="tip" onclick="this.style.display='none'">This is an audio visualization tool.<br>The source can be your mic or an audio file.<br>The audio file could be dropped in.<br>Click to close.</div>
 
 <script>
-//get all eles with an id
-var eles={};
-[...document.querySelectorAll('[id]')].forEach(e=>eles[e.id]=e);
-
-try{
-	var audioCtx = new AudioContext();
-}catch(e){
-	alert('Your browser doesnt support AudioContext');
-	throw('abort');
-}
-
-//vars
-var aPack=new AnalyserPack({fftSize:Number(eles.fftSize.value),audioCtx});
-var freCtx=eles.fre_canvas.getContext('2d'),
-	waveCtx=eles.wave_canvas.getContext('2d');
-
-let gainNode = audioCtx.createGain();
-gainNode.connect(audioCtx.destination);
-let musicSource=audioCtx.createMediaElementSource(eles.audio);
-
-let freMode=null,
-	waveMode=null;
-
-var visuals={
-	wave:new Wave({analyserPack:aPack}),
-	waterfall:new Waterfall({analyserPack:aPack}),
-	bar:new Bar({analyserPack:aPack}),
-}
-var paused=true;
-var querys=getQuery();
-var lowerLimit=0;
+// tip.addEventListener('click',()=>{tip});
 
 
-
-//events
-eles.audio.addEventListener('playing',e=>paused=false);
-eles.audio.addEventListener('pause',e=>paused=true);
-window.addEventListener('resize',canvasSize);
-window.addEventListener('load',canvasSize);
-window.addEventListener('wheel',e=>e.preventDefault());
-eles.control.addEventListener('change',e=>{//listen all changes
-	console.log('input change',e);
-	var T=e.target;
-	switch(T.name){
-		case 'fre':
-			setFreMode(T.value);
-			return;
-		case 'wave':
-			setWaveMode(T.value);
-			return;
-		case 'fftSize':
-			const v=Number(T.value);
-			if(!(v>=32&&v<=32768)){
-				alert('range: 32 to 32768');
-				return;
-			}
-			if(v.toString(2).match(/^10+$/)){
-				setFFT(v);
-			}else{
-				alert('the number must be power of 2');
-			}
-			return;
-		case 'source':
-			querys.source=T.value;
-			location.hash=`#${formQuery()}`;
-			setSource(T.value);
-			return;
-		case 'musicFile':
-			eles.audio.src=URL.createObjectURL(T.files[0]);
-			eles.audio.play();
-			return;
-		case 'lowerLimit':
-			eles.lowerLimitNum.value=T.value;
-			lowerLimit=Number(T.value);
-			break;
-		case 'lowerLimitNum':
-			eles.lowerLimit.value=T.value;
-			lowerLimit=Number(T.value);
-			break;
-		default:
-			console.warn('unhandled change event');
-	}
-});
-eles.fixTopControl.addEventListener('click',e=>{//fix button
-	classToggle(eles.control,'FixTop');
-});
 
 //funcs
 function getQuery(){
@@ -165,7 +97,7 @@ function getQuery(){
 }
 function formQuery(){
 	let list=[];
-	console.log(' form args',list)
+	//console.log(' form args',list)
 	for(let s in querys){
 		if(querys[s])list.push(`${s}=${querys[s]}`);
 		else if(!s){}
@@ -173,15 +105,100 @@ function formQuery(){
 	}
 	return list.join('&');
 }
-function canvasSize(){
-	freMode&&freMode.canvasSize(fre_canvas);
-	waveMode&&waveMode.canvasSize(wave_canvas);
+function classToggle(ele,c){
+	if(ele.classList.contains(c)){
+		ele.classList.remove(c);
+	}else{
+		ele.classList.add(c);
+	}
 }
-function setFFT(v){
-	console.log(v);
-	aPack.analyser.fftSize=v;
-	canvasSize();
+
+var querys=getQuery();
+
+var eles={};//get all eles with an id
+[...document.querySelectorAll('[id]')].forEach(e=>eles[e.id]=e);
+
+try{
+
+	var audioCtx = new AudioContext();
+	audioCtx.onstatechange=(e)=>{
+		console.log(e)
+	}
+	window.addEventListener('click',e=>audioCtx.resume());
+	window.addEventListener('mouseout',e=>audioCtx.resume());
+}catch(e){
+	alert('Your browser doesnt support AudioContext');
+	throw('abort');
 }
+let musicSource=audioCtx.createMediaElementSource(eles.audio),
+	outputNode = audioCtx.createGain();//for music playing
+musicSource.connect(outputNode);
+outputNode.connect(audioCtx.destination);
+
+var visualGroup=new VisualGroup(audioCtx);
+eles.canvas_area.appendChild(visualGroup.container);
+
+
+
+
+
+//events
+eles.audio.addEventListener('playing',e=>visualGroup.paused=false);
+eles.audio.addEventListener('pause',e=>{eles.source.source.value=='music'&&(visualGroup.paused=true)});
+window.addEventListener('resize',()=>{visualGroup.canvasSize()});
+window.addEventListener('load',()=>{visualGroup.canvasSize()});
+window.addEventListener('wheel',e=>e.preventDefault());
+eles.control.addEventListener('change',e=>{//listen all changes
+	//console.log('input change',e);
+	var T=e.target;
+	switch(T.name){
+		case 'channelmode':
+			visualGroup.channelMode(T.value);
+			return;
+		case 'fre':
+			visualGroup.channelFunc('freMode',T.value);
+			return;
+		case 'wave':
+			visualGroup.channelFunc('waveMode',T.value);
+			return;
+		case 'fftSize':
+			const v=Number(T.value);
+			if(!(v>=32&&v<=32768)){
+				alert('range: 32 to 32768');
+				return;
+			}
+			if(v.toString(2).match(/^10+$/)){
+				visualGroup.channelValue('fftSize',v);
+			}else{
+				alert('the number must be power of 2');
+			}
+			return;
+		case 'source':
+			querys.source=T.value;
+			location.hash=`#${formQuery()}`;
+			setSource(T.value);
+			return;
+		case 'musicFile':
+			eles.audio.src=URL.createObjectURL(T.files[0]);
+			eles.audio.play();
+			return;
+		case 'lowerLimit':
+			eles.lowerLimitNum.value=T.value;
+			visualGroup.channelValue('lowerLimit',Number(T.value));
+			break;
+		case 'lowerLimitNum':
+			eles.lowerLimit.value=T.value;
+			visualGroup.channelValue('lowerLimit',Number(T.value));
+			break;
+		default:
+			console.warn('unhandled change event');
+	}
+});
+eles.fixTopControl.addEventListener('click',e=>{//fix button
+	classToggle(eles.control,'FixTop');
+});
+
+
 var unsetSource;
 function setSource(s){
 	if(unsetSource){
@@ -191,15 +208,15 @@ function setSource(s){
 	switch(s){
 		case 'mic':{
 			eles.source.source.value='mic';
-			paused=false;
+			visualGroup.paused=false;
 			eles.musicControl.hidden=true;
 			navigator.mediaDevices.getUserMedia({audio:true})
 			.then(function(mediaStream){
 				let ms=audioCtx.createMediaStreamSource(mediaStream);
-				ms.connect(aPack.analyser);
-				console.log('tracks',ms.mediaStream.getTracks())
+				visualGroup.setSource(ms);
+				console.log('tracks',ms.mediaStream.getTracks());
 				unsetSource=()=>{
-					ms.disconnect(aPack.analyser);
+					visualGroup.setSource();
 					for(let t of ms.mediaStream.getTracks()){
 						t.stop();
 					}
@@ -209,55 +226,30 @@ function setSource(s){
 		};
 		case 'music':{
 			eles.source.source.value='music';
-			paused=true;
+			visualGroup.paused=true;
 			eles.musicControl.hidden=false;
-			musicSource.connect(aPack.analyser);
-			musicSource.connect(gainNode);
+			visualGroup.setSource(musicSource);
+			// musicSource.connect(outputNode);
 			unsetSource=()=>{
 				eles.audio.pause();
-				musicSource.disconnect(aPack.analyser);
-				musicSource.disconnect(gainNode);
+				visualGroup.setSource();
+				// musicSource.disconnect(outputNode);
 			}
 			break;
 		};
 		default:alert('unsupported source');
 	}
 }
-function classToggle(ele,c){
-	if(ele.classList.contains(c)){
-		ele.classList.remove(c);
-	}else{
-		ele.classList.add(c);
-	}
-}
-function setFreMode(m){
-	freCtx.clearRect(0,0,eles.fre_canvas.width,eles.fre_canvas.height);
-	if(m!=='none'){//on
-		eles.fre_canvas.hidden=false;
-		freMode=visuals[m];
-		freMode.canvasSize(fre_canvas);
-	}else{
-		eles.fre_canvas.hidden=true;
-		freMode=null;
-	}
-}
-function setWaveMode(m){
-	if(m!=='off'){//on
-		eles.wave_canvas.hidden=false;
-		waveMode=visuals['wave'];
-		waveMode.canvasSize(wave_canvas);
-	}else{
-		eles.wave_canvas.hidden=true;
-		waveMode=null;
-	}
-}
+
 
 window.addEventListener("dragover",function(e) {
+	audioCtx.resume();
     e.dataTransfer.dropEffect = "copy";
     e.stopPropagation();
     e.preventDefault();
 });
 window.addEventListener("drop",function(e) {
+	audioCtx.resume();
     e.dataTransfer.dropEffect = "copy";
     e.stopPropagation();
     e.preventDefault();
@@ -265,28 +257,27 @@ window.addEventListener("drop",function(e) {
     eles.musicFile.files=e.dataTransfer.files;
     eles.musicFile.dispatchEvent(new Event("change"));
 },false);
-
-//draw the canvas
-function drawLoop(){
-	if(!paused){
-		let w=eles.wave_canvas.width,
-			h=eles.wave_canvas.height;
-		if(freMode && aPack.frequencyArray!==null){//draw frequency
-			freMode.draw(eles.fre_canvas,freCtx);
-		}
-		if(waveMode && aPack.waveArray!==null){//draw wave
-			visuals.wave.draw(eles.wave_canvas,waveCtx);
+window.addEventListener('keydown',e=>{
+	if(e.target.tagName=='INPUT')return;
+	if(e.code=='Space'){
+		if(eles.source.source.value=='mic'){
+			visualGroup.paused=!visualGroup.paused;
+		}else{
+			if(eles.audio.paused)eles.audio.play();
+			else{eles.audio.pause();}
 		}
 	}
+});
+//draw the canvas
+function drawLoop(){
+	visualGroup.channelFunc('refresh');
 	requestAnimationFrame(drawLoop);
 }
 requestAnimationFrame(drawLoop);
 
 
-
-
 //prepare data
-function idelLoop(){
+/*function idelLoop(){
 	if(!paused){
 		if(!eles.fre_canvas.hidden){
 			aPack.collectFre();
@@ -299,16 +290,18 @@ function idelLoop(){
 	}
 	requestIdleCallback(idelLoop);
 }
-requestIdleCallback(idelLoop);
+requestIdleCallback(idelLoop);*/
 
 
 
 //init
 setSource(querys.source||'mic');
+eles.channelMode.channelmode[1].click();
 eles.fixTopControl.click();
 eles.freForm.fre[2].click();
 eles.waveForm.wave[0].click();
-setFFT(eles.fftSize.value=4096);
+// visualGroup.channelMode('merge');
+visualGroup.channelValue('fftSize',eles.fftSize.value=4096);
 
 
 </script>

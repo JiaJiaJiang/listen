@@ -1,31 +1,222 @@
+class VisualGroup{
+	constructor(audioCtx){
+		this.audioCtx=audioCtx;
+		this.mainGain=audioCtx.createGain();
+		this.container=document.createElement('div');
+		this.container.id='visualGroup';
+		this.channels=[];
+		this._splitter=null;
+		this._source=null;
+
+		this.paused=false;
+
+		setTimeout(()=>{
+			if(this._source && !this.channels.length)
+				this.channelMode('split');
+		},0);
+
+	}
+	/*init(opts={}){
+		let opt=Object.assign({mode:"split"},opts);
+		if(this._source)
+			this.channelMode(opt.mode);
+	}*/
+	setSource(source){
+		try{
+			if(this._source)this._source.disconnect(this.mainGain);
+		}catch(e){}
+		if(!source){
+			this._source=null;return;
+		}
+		console.log('set source');
+		this._source=source;
+		source.connect(this.mainGain);
+		this.channelMode();
+	}
+	channelMode(mode=(this._splitter?'split':'merge')){// split/merge
+		console.warn('channel mode',mode);
+		this.mainGain.disconnect();
+		if(this._splitter){
+			this._splitter.disconnect();
+			this._splitter=null;
+		}
+		let chArr=[];
+		if(mode=='split'){
+			let ch=this.mainGain.channelCount;
+			console.log('source channels:',ch);
+			let sp=this.audioCtx.createChannelSplitter(ch);
+			this.mainGain.connect(sp);
+			//console.log('splited channels:',sp.channelCount);
+			this._splitter=sp;
+			for(;ch--;){
+				let g=this.audioCtx.createGain();
+				sp.connect(g,ch,0);
+				chArr.unshift(g);
+			}
+		}else if(mode=='merge'){
+			let g=this.audioCtx.createGain();
+			this.mainGain.connect(g);
+			chArr.push(g);
+		}else{throw(new Error('Wrong channel mode'))}
+		if(!chArr.length)return;
+
+		for(let c of this.channels){
+			c.destroy();
+		}
+		this.channels.length=0;
+
+		let height=100/chArr.length,i=0;
+		for(let nc of chArr){
+			let VC=new VisualChannel(this,nc);
+			VC.visualFrame.style.cssText+=`height:${height}%;top:${100*i/chArr.length}%`;
+			this.container.appendChild(VC.visualFrame);
+			this.channels.push(VC);
+			i++;
+		}
+
+		this.canvasSize();
+
+	}
+	channelFunc(func,...args){
+		for(let c of this.channels)c[func](...args);
+	}
+	channelValue(name,value){
+		for(let c of this.channels)c[name]=value;
+	}
+	canvasSize(){
+		this.channelFunc('canvasSize');
+	}
+}
+
+
+class VisualChannel{
+	constructor(visualGroup,channelNode,opts){
+		this.visualGroup=visualGroup;
+		this.audioCtx=visualGroup.audioCtx;
+		this._audioNode=channelNode;
+		this.waveCanvas=document.createElement('canvas');
+		this.waveCanvas.id='waveCanvas';
+		this.freCanvas=document.createElement('canvas');
+		this.freCanvas.id='freCanvas';
+		this.waveCtx=this.waveCanvas.getContext('2d');
+		this.freCtx=this.freCanvas.getContext('2d');
+		this.visualFrame=document.createElement('div');
+		this.visualFrame.className='visualFrame';
+		this.visualFrame.appendChild(this.freCanvas);
+		this.visualFrame.appendChild(this.waveCanvas);
+
+		this.lowerLimit=0;
+		this.higherLimit=1;
+
+		this.waveVisual=null;
+		this.freVisual=null;
+
+		let opt=Object.assign({fftSize:Number(eles.fftSize.value),waveMode:eles.waveForm.wave.value,freMode:eles.freForm.fre.value},opts);
+		this.analyserPack=new AnalyserPack({fftSize:Number(opt.fftSize),audioCtx:this.audioCtx});
+
+		requestAnimationFrame(()=>{
+			opt.waveMode&&this.waveMode(opt.waveMode);
+			opt.freMode&&this.freMode(opt.freMode);
+		});
+
+		this._audioNode.connect(this.analyserPack.analyser);
+	}
+	set fftSize(size){
+		this.analyserPack.fftSize=size;
+	}
+	waveMode(mode){// wave/none
+		console.log('wave mode:',mode)
+		this.waveCanvas.height+=0;
+		if(visualList.wave[mode]){
+			this.waveVisual=new visualList.wave[mode](this);
+			this.waveCanvas.hidden=false;
+			this.waveVisual.canvasSize();
+		}else{
+			this.waveCanvas.hidden=true;
+			this.waveVisual=null;
+		}
+	}
+	freMode(mode){// waterfall/bar/none
+		console.log('fre mode:',mode)
+		this.freCanvas.height+=0;
+		if(visualList.fre[mode]){
+			this.freVisual=new visualList.fre[mode](this);
+			this.freCanvas.hidden=false;
+			this.freVisual.canvasSize();
+		}else{
+			this.freCanvas.hidden=true;
+			this.freVisual=null;
+		}
+	}
+	refresh(){
+		if(this.visualGroup.paused)return;
+		if(this.analyserPack){
+			if(this.waveVisual){
+				this.analyserPack.collectWave();
+				this.waveVisual.draw();
+			}
+			if(this.freVisual){
+				this.analyserPack.collectFre();
+				this.freVisual.draw();
+			}
+		}
+	}
+	destroy(){// undo all connections and delete dom nodes
+		try{
+			this._audioNode.disconnect(this.analyserPack.analyser);
+		}catch(e){}
+		this.visualFrame.parentNode.removeChild(this.visualFrame);
+		this.waveVisual=null;
+		this.freVisual=null;
+		this.analyserPack=null;
+		this._audioNode=null;
+	}
+	canvasSize(){
+		if(this.waveVisual){
+			this.waveVisual.canvasSize();
+		}
+		if(this.freVisual){
+			this.freVisual.canvasSize();
+
+		}
+	}
+}
 class AnalyserPack{
 	constructor({fftSize=1024,audioCtx}={}){
 		var analyser=this.analyser=audioCtx.createAnalyser();
-		analyser.fftSize=fftSize;
 		analyser.smoothingTimeConstant=0;
 		this.frequencyArray=null;
 		this.waveArray=null;
+		this.fftSize=fftSize;
 		console.log('fft:',analyser.fftSize,' ','fB:',analyser.frequencyBinCount)
 	}
+	set fftSize(size){
+		this.analyser.fftSize=size;
+		this.frequencyArray=new Uint8Array(this.analyser.frequencyBinCount);
+		this.waveArray=new Float32Array(this.analyser.fftSize);
+	}
 	collectFre(){
-		if(!this.frequencyArray || this.frequencyArray.length!==this.analyser.frequencyBinCount)
-			this.frequencyArray=new Uint8Array(this.analyser.frequencyBinCount);
 		if(this.frequencyArray)
 			this.analyser.getByteFrequencyData(this.frequencyArray);
 	}
 	collectWave(){
-		if(!this.waveArray || this.waveArray.length!==this.analyser.fftSize)
-			this.waveArray=new Float32Array(this.analyser.fftSize);
-		if(this.waveArray )
+		if(this.waveArray)
 			this.analyser.getFloatTimeDomainData(this.waveArray);
 	}
 }
 
+
+
+
+
+
+
 class Visual{
-	constructor({analyserPack}={}){
-		this.analyserPack=analyserPack;
+	constructor(visualChannel){
+		this.visualChannel=visualChannel;
+		this.analyserPack=visualChannel.analyserPack;
 	}
-	draw(canvas,ctx){}
+	draw(){}
 	get dataCount(){return this.analyserPack.analyser.frequencyBinCount;}
 	collectFre(){
 		this.analyserPack.collectFre();
@@ -36,8 +227,8 @@ class Visual{
 }
 
 class Waterfall extends Visual{
-	constructor({analyserPack}={}){
-		super({analyserPack});
+	constructor(visualChannel){
+		super(visualChannel);
 		this.setArrays();
 		this.bufferCanvas=document.createElement('canvas');
 		this.bufferCanvas.height=1;
@@ -51,12 +242,14 @@ class Waterfall extends Visual{
 			this.freImageDataArray[i*4+3]=255;
 		}
 	}
-	map(canvas){
+	map(){
 		if(this.freNewImageData.width!==this.dataCount)
 			this.setArrays();
 		let freArr=this.analyserPack.frequencyArray,
 			dataArr=this.freImageDataArray,
-			dataCount=this.dataCount;
+			dataCount=this.dataCount,
+			canvas=this.visualChannel.freCanvas,
+			lowerLimit=this.visualChannel.lowerLimit*255;
 
 		for(let i=dataCount;i--;){
 			if(freArr[i]<lowerLimit){
@@ -77,20 +270,25 @@ class Waterfall extends Visual{
 		if(this.bufferMode)
 			this.bufferCtx.putImageData(this.freNewImageData,0,0);
 	}
-	canvasSize(canvas){
+	canvasSize(){
+		let canvas=this.visualChannel.freCanvas;
+		if(canvas.isConnected){
+			refreshElement(canvas);
+		}
 		if(canvas.height!=canvas.offsetHeight)canvas.height=canvas.offsetHeight;
 		if(canvas.offsetWidth<this.dataCount){
 			canvas.width=canvas.offsetWidth;
 			this.bufferCanvas.width=this.dataCount;
 			this.bufferMode=true;
-		}
-		else{
+		}else{
 			canvas.width=this.dataCount;
 			this.bufferMode=false;
 		}
 
 	}
-	draw(canvas,ctx){
+	draw(){
+		let canvas=this.visualChannel.freCanvas,ctx=this.visualChannel.freCtx;
+		this.map();
 		ctx.drawImage(canvas,0,-1);
 		if(this.bufferMode){
 			ctx.drawImage(this.bufferCanvas,0,canvas.height-1,canvas.width,1);
@@ -101,10 +299,11 @@ class Waterfall extends Visual{
 }
 
 class Bar extends Visual{
-	constructor({analyserPack}={}){
-		super({analyserPack});
+	constructor(visualChannel){
+		super(visualChannel);
 	}
-	draw(canvas,ctx){
+	draw(){
+		let canvas=this.visualChannel.freCanvas,ctx=this.visualChannel.freCtx;
 		let freArray=this.analyserPack.frequencyArray,
 			h=canvas.height,
 			max_h=.9*h;
@@ -113,23 +312,28 @@ class Bar extends Visual{
 		ctx.beginPath();
 		ctx.strokeStyle = "#555";
 		for(let i=freArray.length;i--;){
-			if(freArray[i]<lowerLimit)continue;
+			if(freArray[i]<this.visualChannel.lowerLimit)continue;
 			ctx.moveTo(i,h-(freArray[i]/255)*max_h);
 			ctx.lineTo(i,h);
 		}
 		ctx.stroke();
 	}
-	canvasSize(canvas){
+	canvasSize(){
+		let canvas=this.visualChannel.freCanvas;
+		if(canvas.isConnected){
+			refreshElement(canvas);
+		}
 		if(canvas.height!=canvas.offsetHeight)canvas.height=canvas.offsetHeight;
 		canvas.width=this.dataCount;
 	}
 }
 
 class Wave extends Visual{
-	constructor({analyserPack}={}){
-		super({analyserPack});
+	constructor(visualChannel){
+		super(visualChannel);
 	}
-	draw(canvas,ctx){
+	draw(){
+		let canvas=this.visualChannel.waveCanvas,ctx=this.visualChannel.waveCtx;
 		let waveArray=this.analyserPack.waveArray,
 			max_h=canvas.height,
 			half_h=canvas.height/2;
@@ -143,14 +347,33 @@ class Wave extends Visual{
 		}else{
 			dataLength=this.analyserPack.analyser.fftSize;
 		}
-		ctx.moveTo(0,half_h+max_h*waveArray[waveArray.length-dataLength]);
+		ctx.moveTo(0,half_h+half_h*waveArray[waveArray.length-dataLength]);
 		for (var i =1,dataInd=waveArray.length-dataLength; dataInd < waveArray.length; i++,dataInd++) {
-			ctx.lineTo(i,half_h+max_h*waveArray[dataInd]);
+			ctx.lineTo(i,half_h+half_h*waveArray[dataInd]);
 		}
 		ctx.stroke();
 	}
-	canvasSize(canvas){
+	canvasSize(){
+		let canvas=this.visualChannel.waveCanvas;
+		if(canvas.isConnected){
+			refreshElement(canvas);
+		}
 		canvas.width=canvas.offsetWidth;
 		canvas.height=canvas.offsetHeight;
 	}
+}
+
+
+const visualList={
+	fre:{
+		bar:Bar,
+		waterfall:Waterfall,
+	},
+	wave:{
+		wave:Wave,
+	}
+};
+
+function refreshElement(ele){
+	ele.offsetHeight;
 }
