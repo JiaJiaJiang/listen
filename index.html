@@ -28,7 +28,20 @@ form{display: inline-block;margin: 0;}
 <div id="canvas_area"></div>
 <div id="control">
 	<span>
-		&nbsp;fft size:<input id="fftSize" type="text" pattern="^\d+$" name="fftSize" value='4096' style="width: 6em;" max="32768" min="2"><span title="must be power of 2, between 32 and 32768"> ⚠️</span>
+		&nbsp;fft size:
+		<select id="fftSize" name="fftSize" >
+			<option value="32">32</option>
+			<option value="64">64</option>
+			<option value="128">128</option>
+			<option value="256">256</option>
+			<option value="512">512</option>
+			<option value="1024">1024</option>
+			<option value="2048">2048</option>
+			<option value="4096">4096</option>
+			<option value="8192">8192</option>
+			<option value="16384">16384</option>
+			<option value="32768">32768</option>
+		</select><span title="must be power of 2, between 32 and 32768"> ⚠️</span>
 	</span>
 	<span>
 		<form id="freForm">
@@ -40,8 +53,8 @@ form{display: inline-block;margin: 0;}
 	</span>
 	<span>
 			frequency limit:
-			<input type="range" name="lowerLimit"  id="lowerLimit" min="0" max="255" step="1" value="0" style="height: 1em;">
-			<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="0" max="255" step="1" value="0" style="width: : 4em;">
+			<input type="range" name="lowerLimit"  id="lowerLimit" min="0" max="1" step="0.001" value="0" style="height: 1em;">
+			<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="0" max="1" step="0.001" value="0" style="width: : 4em;">
 	</span>
 	<span>wave:
 		<form id="waveForm">
@@ -65,8 +78,8 @@ form{display: inline-block;margin: 0;}
 		</form>
 	</span>
 	<span>©<a href="https://luojia.me" target="_blank">luojia</a></span>
-	<span>git:<a href="https://github.com/JiaJiaJiang/listen/settings" target="_blank">Github</a></span>
-	<span title="fixed" id="fixTopControl">📌</span>
+	<span>git:<a href="https://github.com/JiaJiaJiang/listen/" target="_blank">Github</a></span>
+	<span title="fixed" id="fixTopControl" onclick="classToggle(eles.control,'FixTop');return false;">📌</span>
 	<div id="musicControl">
 		<input type="file" name="musicFile" id="musicFile">
 		<audio id="audio" controls></audio>
@@ -130,10 +143,11 @@ try{
 	alert('Your browser doesnt support AudioContext');
 	throw('abort');
 }
-let musicSource=audioCtx.createMediaElementSource(eles.audio),
-	outputNode = audioCtx.createGain();//for music playing
-musicSource.connect(outputNode);
+let outputNode = audioCtx.createGain();//for music playing
 outputNode.connect(audioCtx.destination);
+let musicSource=audioCtx.createMediaElementSource(eles.audio);
+musicSource.connect(outputNode);
+
 
 var visualGroup=new VisualGroup(audioCtx);
 eles.canvas_area.appendChild(visualGroup.container);
@@ -149,7 +163,7 @@ window.addEventListener('resize',()=>{visualGroup.canvasSize()});
 window.addEventListener('load',()=>{visualGroup.canvasSize()});
 window.addEventListener('wheel',e=>e.preventDefault());
 eles.control.addEventListener('change',e=>{//listen all changes
-	//console.log('input change',e);
+	console.log('input change',e);
 	var T=e.target;
 	switch(T.name){
 		case 'channelmode':
@@ -180,7 +194,6 @@ eles.control.addEventListener('change',e=>{//listen all changes
 			return;
 		case 'musicFile':
 			eles.audio.src=URL.createObjectURL(T.files[0]);
-			eles.audio.play();
 			return;
 		case 'lowerLimit':
 			eles.lowerLimitNum.value=T.value;
@@ -193,9 +206,6 @@ eles.control.addEventListener('change',e=>{//listen all changes
 		default:
 			console.warn('unhandled change event');
 	}
-});
-eles.fixTopControl.addEventListener('click',e=>{//fix button
-	classToggle(eles.control,'FixTop');
 });
 
 
@@ -228,12 +238,9 @@ function setSource(s){
 			eles.source.source.value='music';
 			visualGroup.paused=true;
 			eles.musicControl.hidden=false;
-			visualGroup.setSource(musicSource);
-			// musicSource.connect(outputNode);
 			unsetSource=()=>{
 				eles.audio.pause();
 				visualGroup.setSource();
-				// musicSource.disconnect(outputNode);
 			}
 			break;
 		};
@@ -241,14 +248,13 @@ function setSource(s){
 	}
 }
 
-
-window.addEventListener("dragover",function(e) {
+window.addEventListener("dragover",e=>{
 	audioCtx.resume();
     e.dataTransfer.dropEffect = "copy";
     e.stopPropagation();
     e.preventDefault();
 });
-window.addEventListener("drop",function(e) {
+window.addEventListener("drop",e=>{
 	audioCtx.resume();
     e.dataTransfer.dropEffect = "copy";
     e.stopPropagation();
@@ -260,6 +266,7 @@ window.addEventListener("drop",function(e) {
 window.addEventListener('keydown',e=>{
 	if(e.target.tagName=='INPUT')return;
 	if(e.code=='Space'){
+		if(e.repeat)return;
 		if(eles.source.source.value=='mic'){
 			visualGroup.paused=!visualGroup.paused;
 		}else{
@@ -268,29 +275,17 @@ window.addEventListener('keydown',e=>{
 		}
 	}
 });
+eles.audio.addEventListener('loadedmetadata',e=>{
+	console.log('music loaded')
+	visualGroup.setSource(musicSource);
+	eles.audio.play();
+})
 //draw the canvas
 function drawLoop(){
 	visualGroup.channelFunc('refresh');
 	requestAnimationFrame(drawLoop);
 }
 requestAnimationFrame(drawLoop);
-
-
-//prepare data
-/*function idelLoop(){
-	if(!paused){
-		if(!eles.fre_canvas.hidden){
-			aPack.collectFre();
-			if(eles.freForm.fre.value==='waterfall'){
-				visuals.waterfall.map(fre_canvas);
-			}
-		}
-		if(!eles.wave_canvas.hidden)
-			aPack.collectWave();
-	}
-	requestIdleCallback(idelLoop);
-}
-requestIdleCallback(idelLoop);*/
 
 
 

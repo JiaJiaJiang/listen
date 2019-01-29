@@ -16,19 +16,14 @@ class VisualGroup{
 		},0);
 
 	}
-	/*init(opts={}){
-		let opt=Object.assign({mode:"split"},opts);
-		if(this._source)
-			this.channelMode(opt.mode);
-	}*/
 	setSource(source){
 		try{
 			if(this._source)this._source.disconnect(this.mainGain);
 		}catch(e){}
+		console.log('set source');
 		if(!source){
 			this._source=null;return;
 		}
-		console.log('set source');
 		this._source=source;
 		source.connect(this.mainGain);
 		this.channelMode();
@@ -122,7 +117,8 @@ class VisualChannel{
 		this._audioNode.connect(this.analyserPack.analyser);
 	}
 	set fftSize(size){
-		this.analyserPack.fftSize=size;
+		this.analyserPack.fftSize=Number(size);
+		this.canvasSize();
 	}
 	waveMode(mode){// wave/none
 		console.log('wave mode:',mode)
@@ -151,14 +147,10 @@ class VisualChannel{
 	refresh(){
 		if(this.visualGroup.paused)return;
 		if(this.analyserPack){
-			if(this.waveVisual){
-				this.analyserPack.collectWave();
-				this.waveVisual.draw();
-			}
-			if(this.freVisual){
-				this.analyserPack.collectFre();
-				this.freVisual.draw();
-			}
+			this.waveVisual&&this.analyserPack.collectWave();
+			this.freVisual&&this.analyserPack.collectFre();
+			this.waveVisual&&this.waveVisual.draw();
+			this.freVisual&&this.freVisual.draw();
 		}
 	}
 	destroy(){// undo all connections and delete dom nodes
