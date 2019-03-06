@@ -1,14 +1,19 @@
+/*
+Copyrigth luojia@luojia.me
+*/ 
 class VisualGroup{
 	constructor(audioCtx){
 		this.audioCtx=audioCtx;
-		this.mainGain=audioCtx.createGain();
 		this.container=document.createElement('div');
 		this.container.id='visualGroup';
 		this.channels=[];
+
 		this._splitter=null;
 		this._source=null;
 
 		this.paused=false;
+
+		this.defaultChannelMode=eles.channelMode.channelmode.value;
 
 		setTimeout(()=>{
 			if(this._source && !this.channels.length)
@@ -16,43 +21,53 @@ class VisualGroup{
 		},0);
 
 	}
+	setChannelCount(c){
+		this._source.channelCount=c;
+		this.channelMode(this.defaultChannelMode);
+	}
 	setSource(source){
 		try{
-			if(this._source)this._source.disconnect(this.mainGain);
+			if(this._source&&this._splitter)this._source.disconnect(this._splitter);
 		}catch(e){}
 		console.log('set source');
 		if(!source){
 			this._source=null;return;
 		}
 		this._source=source;
-		source.connect(this.mainGain);
-		this.channelMode();
+		sourceChannels.value=source.channelCount;
+		this.channelMode(this.defaultChannelMode);
 	}
-	channelMode(mode=(this._splitter?'split':'merge')){// split/merge
+	channelMode(mode=(this._splitter.channelCount===1?'split':'merge')){// split/merge
+		this.defaultChannelMode=mode;
+		if(!this._source){
+			console.warn('no source, cannot change channelMode');
+			return;
+		}
 		console.warn('channel mode',mode);
-		this.mainGain.disconnect();
+		try{
+			if(this._source&&this._splitter)this._source.disconnect(this._splitter);
+		}catch(e){}
 		if(this._splitter){
 			this._splitter.disconnect();
 			this._splitter=null;
 		}
-		let chArr=[];
+		let chArr=[],ch;
 		if(mode=='split'){
-			let ch=this.mainGain.channelCount;
-			console.log('source channels:',ch);
-			let sp=this.audioCtx.createChannelSplitter(ch);
-			this.mainGain.connect(sp);
-			//console.log('splited channels:',sp.channelCount);
-			this._splitter=sp;
-			for(;ch--;){
-				let g=this.audioCtx.createGain();
-				sp.connect(g,ch,0);
-				chArr.unshift(g);
-			}
+			ch=this._source.channelCount;
 		}else if(mode=='merge'){
+			ch=1;
+		}else{throw(new Error('Wrong channel mode:'+mode))}
+
+		console.log('source channels:',ch);
+		this._splitter=this.audioCtx.createChannelSplitter(ch);
+		this._source.connect(this._splitter);
+		//console.log('splited channels:',sp.channelCount);
+		for(;ch--;){
 			let g=this.audioCtx.createGain();
-			this.mainGain.connect(g);
-			chArr.push(g);
-		}else{throw(new Error('Wrong channel mode'))}
+			g.channelCount=1;
+			this._splitter.connect(g,ch,0);
+			chArr.unshift(g);
+		}
 		if(!chArr.length)return;
 
 		for(let c of this.channels){

@@ -2,11 +2,11 @@
 <title>listen</title>
 <meta charset="utf-8">
 <style>
-html{background: #000;}
+html{background: #171515;}
 #control{position: fixed;z-index: 999;width:100%;top:0;left:0;background: #fff;opacity: 0;padding: 0.1em;}
 #control:hover{opacity: .9!important;}
 .FixTop{opacity: .2!important;}
-#control>span:not(:first-child){border-left: 1px solid #ccc;margin-left: 0.1em;padding-left: 0.4em;}
+#control>span:not(:first-child){display:inline-block;border-left: 1px solid #ccc;margin-left: 0.1em;padding-left: 0.4em;}
 span[title],label,input[type='radio']{cursor: pointer;}
 form{display: inline-block;margin: 0;}
 [name='musicFile']{width:300px;}
@@ -54,7 +54,7 @@ form{display: inline-block;margin: 0;}
 	<span>
 			frequency limit:
 			<input type="range" name="lowerLimit"  id="lowerLimit" min="0" max="1" step="0.001" value="0" style="height: 1em;">
-			<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="0" max="1" step="0.001" value="0" style="width: : 4em;">
+			<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="0" max="1" step="0.001" value="0" style="width: 4em;">
 	</span>
 	<span>wave:
 		<form id="waveForm">
@@ -68,6 +68,7 @@ form{display: inline-block;margin: 0;}
 			<label><input type="radio" name="channelmode" value="split">split</label>
 			<label><input type="radio" name="channelmode" value="merge">merge</label>
 			&nbsp;
+			<label>Channels: <input type="number" name="sourceChannels" value="0" id="sourceChannels" style="width: 3em;text-align: center;"></label>
 			<button onclick="classToggle(visualGroup.container,'reverse');return false;">reverse 2n channels</button>
 		</form>
 	</span>
@@ -86,7 +87,7 @@ form{display: inline-block;margin: 0;}
 	</div>
 </div>
 
-<div id="tip" onclick="this.style.display='none'">This is an audio visualization tool.<br>The source can be your mic or an audio file.<br>The audio file could be dropped in.<br>Click to close.</div>
+<div id="tip" onclick="this.style.display='none'">This is an audio visualization tool.<br>The source can be your mic or an audio file.<br>The audio file could be dropped in.<br>The browser may not read channel counts of the audio correctly, you can change it yourself.<br>Click to close.</div>
 
 <script>
 // tip.addEventListener('click',()=>{tip});
@@ -135,7 +136,7 @@ try{
 
 	var audioCtx = new AudioContext();
 	audioCtx.onstatechange=(e)=>{
-		console.log(e)
+		console.debug(e)
 	}
 	window.addEventListener('click',e=>audioCtx.resume());
 	window.addEventListener('mouseout',e=>audioCtx.resume());
@@ -143,10 +144,9 @@ try{
 	alert('Your browser doesnt support AudioContext');
 	throw('abort');
 }
-let outputNode = audioCtx.createGain();//for music playing
+let outputNode = audioCtx.createGain(),musicSource;//for music playing
 outputNode.connect(audioCtx.destination);
-let musicSource=audioCtx.createMediaElementSource(eles.audio);
-musicSource.connect(outputNode);
+
 
 
 var visualGroup=new VisualGroup(audioCtx);
@@ -168,6 +168,9 @@ eles.control.addEventListener('change',e=>{//listen all changes
 	switch(T.name){
 		case 'channelmode':
 			visualGroup.channelMode(T.value);
+			return;
+		case 'sourceChannels':
+			visualGroup.setChannelCount(1*T.value);
 			return;
 		case 'fre':
 			visualGroup.channelFunc('freMode',T.value);
@@ -221,17 +224,20 @@ function setSource(s){
 			visualGroup.paused=false;
 			eles.musicControl.hidden=true;
 			navigator.mediaDevices.getUserMedia({audio:true})
-			.then(function(mediaStream){
-				let ms=audioCtx.createMediaStreamSource(mediaStream);
+			.then(function(micMediaStream){
+				let ms=audioCtx.createMediaStreamSource(micMediaStream);
 				visualGroup.setSource(ms);
-				console.log('tracks',ms.mediaStream.getTracks());
+				console.log('tracks',micMediaStream.getTracks());
 				unsetSource=()=>{
 					visualGroup.setSource();
-					for(let t of ms.mediaStream.getTracks()){
+					for(let t of micMediaStream.getTracks()){
 						t.stop();
 					}
 				}
-			}).catch(function(err) {console.log(err);});
+			}).catch(function(err) {
+				console.log(err);
+				alert('Cannot get media stream, please check your settings.Or you browser requires a secure context to get the media.');
+			});
 			break;
 		};
 		case 'music':{
@@ -260,8 +266,8 @@ window.addEventListener("drop",e=>{
     e.stopPropagation();
     e.preventDefault();
     eles.musicMode.click();
-    eles.musicFile.files=e.dataTransfer.files;
-    eles.musicFile.dispatchEvent(new Event("change"));
+	eles.musicFile.files=e.dataTransfer.files;
+    eles.musicFile.dispatchEvent(new Event("change",{bubbles:true}));
 },false);
 window.addEventListener('keydown',e=>{
 	if(e.target.tagName=='INPUT')return;
@@ -276,7 +282,13 @@ window.addEventListener('keydown',e=>{
 	}
 });
 eles.audio.addEventListener('loadedmetadata',e=>{
-	console.log('music loaded')
+	console.log('music loaded');
+	if(musicSource)
+		try{
+			musicSource.disconnect(outputNode);
+		}catch(e){}
+	musicSource=audioCtx.createMediaElementSource(eles.audio);
+	musicSource.connect(outputNode);
 	visualGroup.setSource(musicSource);
 	eles.audio.play();
 })
@@ -290,13 +302,19 @@ requestAnimationFrame(drawLoop);
 
 
 //init
-setSource(querys.source||'mic');
-eles.channelMode.channelmode[1].click();
+eles.channelMode.channelmode[0].click();
 eles.fixTopControl.click();
-eles.freForm.fre[2].click();
+eles.freForm.fre[1].click();
 eles.waveForm.wave[0].click();
-// visualGroup.channelMode('merge');
 visualGroup.channelValue('fftSize',eles.fftSize.value=4096);
 
+setTimeout(()=>{
+	setSource(querys.source||'mic');
+	if(querys.source=='music'){
+		if(musicFile.files.length){
+			eles.musicFile.dispatchEvent(new Event("change",{bubbles:true}));
+		}
+	}
+},0);
 
 </script>
