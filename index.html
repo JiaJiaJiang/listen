@@ -144,9 +144,10 @@ try{
 	alert('Your browser doesnt support AudioContext');
 	throw('abort');
 }
-let outputNode = audioCtx.createGain(),musicSource;//for music playing
+let outputNode = audioCtx.createGain();//for music playing
 outputNode.connect(audioCtx.destination);
-
+let musicSource=audioCtx.createMediaElementSource(eles.audio);
+musicSource.connect(outputNode);
 
 
 var visualGroup=new VisualGroup(audioCtx);
@@ -283,12 +284,6 @@ window.addEventListener('keydown',e=>{
 });
 eles.audio.addEventListener('loadedmetadata',e=>{
 	console.log('music loaded');
-	if(musicSource)
-		try{
-			musicSource.disconnect(outputNode);
-		}catch(e){}
-	musicSource=audioCtx.createMediaElementSource(eles.audio);
-	musicSource.connect(outputNode);
 	visualGroup.setSource(musicSource);
 	eles.audio.play();
 })
