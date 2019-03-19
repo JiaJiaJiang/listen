@@ -115,8 +115,8 @@ class VisualChannel{
 		this.visualFrame.appendChild(this.freCanvas);
 		this.visualFrame.appendChild(this.waveCanvas);
 
-		this.lowerLimit=0;
-		this.higherLimit=1;
+		// this.lowerLimit=-140;
+		// this.higherLimit=1;
 
 		this.waveVisual=null;
 		this.freVisual=null;
@@ -131,6 +131,7 @@ class VisualChannel{
 
 		this._audioNode.connect(this.analyserPack.analyser);
 	}
+	get lowerLimit(){return lowerLimitNum.value;}
 	set fftSize(size){
 		this.analyserPack.fftSize=Number(size);
 		this.canvasSize();
@@ -199,12 +200,13 @@ class AnalyserPack{
 	}
 	set fftSize(size){
 		this.analyser.fftSize=size;
-		this.frequencyArray=new Uint8Array(this.analyser.frequencyBinCount);
+		this.frequencyArray=new Float32Array(this.analyser.frequencyBinCount);
+		// this.frequencyArray=new Uint8Array(this.analyser.frequencyBinCount);
 		this.waveArray=new Float32Array(this.analyser.fftSize);
 	}
 	collectFre(){
 		if(this.frequencyArray)
-			this.analyser.getByteFrequencyData(this.frequencyArray);
+			this.analyser.getFloatFrequencyData(this.frequencyArray);
 	}
 	collectWave(){
 		if(this.waveArray)
@@ -256,23 +258,18 @@ class Waterfall extends Visual{
 			dataArr=this.freImageDataArray,
 			dataCount=this.dataCount,
 			canvas=this.visualChannel.freCanvas,
-			lowerLimit=this.visualChannel.lowerLimit*255;
+			lowerLimit=this.visualChannel.lowerLimit;
 
 		for(let i=dataCount;i--;){
-			if(freArr[i]<lowerLimit){
+			let v=freValueScale(freArr[i],lowerLimit);
+			if(v===0){
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
 			}
-			if(freArr[i]===0){
-				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
-				continue;
-			}
-			let v=freArr[i]*3;
+			v*=255*3;
 			dataArr[i*4]=v;
-			v=v-dataArr[i*4];
-			dataArr[i*4+1]=v;
-			v=v-dataArr[i*4+1];
-			dataArr[i*4+2]=v;
+			dataArr[i*4+1]=(v-=255);
+			dataArr[i*4+2]=(v-=255);
 		}
 		if(this.bufferMode)
 			this.bufferCtx.putImageData(this.freNewImageData,0,0);
@@ -311,16 +308,18 @@ class Bar extends Visual{
 	}
 	draw(){
 		let canvas=this.visualChannel.freCanvas,ctx=this.visualChannel.freCtx;
-		let freArray=this.analyserPack.frequencyArray,
+		let freArr=this.analyserPack.frequencyArray,
 			h=canvas.height,
 			max_h=.9*h;
 		if(max_h>300)max_h=300;
 		ctx.clearRect(0,0,canvas.width,canvas.height);
 		ctx.beginPath();
 		ctx.strokeStyle = "#555";
-		for(let i=freArray.length;i--;){
-			if(freArray[i]<this.visualChannel.lowerLimit)continue;
-			ctx.moveTo(i,h-(freArray[i]/255)*max_h);
+		let lowerLimit=this.visualChannel.lowerLimit;
+		for(let i=freArr.length;i--;){
+			let v=freValueScale(freArr[i],lowerLimit);
+			// if(freArray[i]<this.visualChannel.lowerLimit)continue;
+			ctx.moveTo(i,h-v*max_h);
 			ctx.lineTo(i,h);
 		}
 		ctx.stroke();
@@ -380,6 +379,13 @@ const visualList={
 		wave:Wave,
 	}
 };
+
+function freValueScale(raw,min){
+	raw-=min;
+	raw/=(-min);
+	if(raw<0)raw=0;
+	return raw;
+}
 
 function refreshElement(ele){
 	ele.offsetHeight;

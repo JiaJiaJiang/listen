@@ -50,11 +50,9 @@ form{display: inline-block;margin: 0;}
 			<label><input type="radio" name="fre" value="bar">bar</label>
 			<label><input type="radio" name="fre" value="waterfall">waterfall</label>
 		</form>
-	</span>
-	<span>
-			frequency limit:
-			<input type="range" name="lowerLimit"  id="lowerLimit" min="0" max="1" step="0.001" value="0" style="height: 1em;">
-			<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="0" max="1" step="0.001" value="0" style="width: 4em;">
+		(Lower dB limit:
+		<input type="range" name="lowerLimit"  id="lowerLimit" min="-200" max="0" step="1" value="-110" style="height: 1em;">
+		<input type="number" name="lowerLimitNum" id="lowerLimitNum" min="-200" max="0" step="1" value="-110" style="width: 4em;">)
 	</span>
 	<span>wave:
 		<form id="waveForm">
@@ -201,11 +199,11 @@ eles.control.addEventListener('change',e=>{//listen all changes
 			return;
 		case 'lowerLimit':
 			eles.lowerLimitNum.value=T.value;
-			visualGroup.channelValue('lowerLimit',Number(T.value));
+			//visualGroup.channelValue('lowerLimit',Number(T.value));
 			break;
 		case 'lowerLimitNum':
 			eles.lowerLimit.value=T.value;
-			visualGroup.channelValue('lowerLimit',Number(T.value));
+			//visualGroup.channelValue('lowerLimit',Number(T.value));
 			break;
 		default:
 			console.warn('unhandled change event');
@@ -299,7 +297,7 @@ requestAnimationFrame(drawLoop);
 //init
 eles.channelMode.channelmode[0].click();
 eles.fixTopControl.click();
-eles.freForm.fre[1].click();
+eles.freForm.fre[2].click();
 eles.waveForm.wave[0].click();
 visualGroup.channelValue('fftSize',eles.fftSize.value=4096);
 
