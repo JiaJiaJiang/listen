@@ -265,7 +265,7 @@ class Waterfall extends Visual{
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
 			}
-			v*=255*3;
+			v*=255*2.85;
 			dataArr[i*4]=v;
 			dataArr[i*4+1]=(v-=255);
 			dataArr[i*4+2]=(v-=255);
@@ -380,6 +380,7 @@ const visualList={
 function freValueScale(raw,min){
 	raw-=min;
 	raw/=(-min);
+	// raw*=(Math.log(raw)/3+1);
 	if(raw<0)raw=0;
 	return raw;
 }
