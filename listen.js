@@ -361,7 +361,7 @@ class Wave extends Visual{
 		if(canvas.isConnected){
 			refreshElement(canvas);
 		}
-		canvas.width=canvas.offsetWidth;
+		canvas.width=this.dataCount;
 		canvas.height=canvas.offsetHeight;
 	}
 }
