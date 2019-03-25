@@ -265,10 +265,9 @@ class Waterfall extends Visual{
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
 			}
-			v*=255*2.85;
-			dataArr[i*4]=v;
-			dataArr[i*4+1]=(v-=255);
-			dataArr[i*4+2]=(v-=255);
+			dataArr[i*4]=(v**2.9)*255;
+			dataArr[i*4+1]=(v**5)*255;
+			dataArr[i*4+2]=(v**1.8)*255;
 		}
 		if(this.bufferMode)
 			this.bufferCtx.putImageData(this.freNewImageData,0,0);
