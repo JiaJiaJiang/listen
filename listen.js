@@ -191,7 +191,7 @@ class VisualChannel{
 }
 class AnalyserPack{
 	constructor({fftSize=1024,audioCtx}={}){
-		var analyser=this.analyser=audioCtx.createAnalyser();
+		var analyser=this.analyser=new AnalyserNode(audioCtx);
 		analyser.smoothingTimeConstant=0;
 		this.frequencyArray=null;
 		this.waveArray=null;
@@ -260,14 +260,13 @@ class Waterfall extends Visual{
 			lowerLimit=this.visualChannel.lowerLimit;
 
 		for(let i=dataCount;i--;){
-			let v=freValueScale(freArr[i],lowerLimit);
 			if(v===0){
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
 			}
-			dataArr[i*4]=(v**2.4)*255;
-			dataArr[i*4+1]=(v**4.3)*255;
-			dataArr[i*4+2]=(v**1.5)*255;
+			dataArr[i*4]=(v**1.6)*255;
+			dataArr[i*4+1]=(v**3.5)*255;
+			dataArr[i*4+2]=(v)*255;
 		}
 		if(this.bufferMode)
 			this.bufferCtx.putImageData(this.freNewImageData,0,0);
