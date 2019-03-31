@@ -259,7 +259,9 @@ class Waterfall extends Visual{
 			dataCount=this.dataCount,
 			lowerLimit=this.visualChannel.lowerLimit;
 
+		let v;
 		for(let i=dataCount;i--;){
+			v=freValueScale(freArr[i],lowerLimit);
 			if(v===0){
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
