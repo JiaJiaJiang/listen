@@ -266,9 +266,9 @@ class Waterfall extends Visual{
 				dataArr[i*4]=dataArr[i*4+1]=dataArr[i*4+2]=0;
 				continue;
 			}
-			dataArr[i*4]=(v**1.6)*255;
-			dataArr[i*4+1]=(v**3.5)*255;
-			dataArr[i*4+2]=(v)*255;
+			dataArr[i*4]=(v**0.9)*255;
+			dataArr[i*4+1]=(v**1.9)*255;
+			dataArr[i*4+2]=(v**0.7)*255;
 		}
 		if(this.bufferMode)
 			this.bufferCtx.putImageData(this.freNewImageData,0,0);
@@ -313,6 +313,10 @@ class Bar extends Visual{
 		if(max_h>300)max_h=300;
 		ctx.clearRect(0,0,canvas.width,canvas.height);
 		ctx.beginPath();
+		ctx.strokeStyle = "#ccc";
+		ctx.lineTo(0,h-max_h);
+		ctx.lineTo(canvas.width,h-max_h);
+		ctx.stroke();
 		ctx.strokeStyle = "#555";
 		let lowerLimit=this.visualChannel.lowerLimit;
 		for(let i=freArr.length;i--;){
@@ -377,12 +381,11 @@ const visualList={
 	}
 };
 
-function freValueScale(raw,min){
-	raw-=min;
-	raw/=(-min);
-	// raw*=(Math.log(raw)/3+1);
-	if(raw<0)raw=0;
-	return raw;
+function freValueScale(raw,min=-150,max=-20){
+	raw=(raw-max)/(min-max);
+	if(raw>1)raw=1;
+	else if(raw<0)raw=0;
+	return (1-raw)**2.9;
 }
 
 function refreshElement(ele){
