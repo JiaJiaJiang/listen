@@ -12,9 +12,9 @@ form{display: inline-block;margin: 0;}
 [name='musicFile']{width:300px;}
 #audio{width:100%;height: 30px;}
 
-#visualGroup{position: absolute;width: 100%;height: 100%;top:0;left: 0;}
+#visualGroupEle{position: absolute;width: 100%;height: 100%;top:0;left: 0;}
 
-#visualGroup.reverse .visualFrame:nth-child(2n){transform: rotateX(180deg);}
+#visualGroupEle.reverse .visualFrame:nth-child(2n){transform: rotateX(180deg);}
 
 .visualFrame{position: absolute;width: 100%;}
 .visualFrame canvas{position: absolute;width: 100%;height: 100%;}
@@ -22,6 +22,30 @@ form{display: inline-block;margin: 0;}
 .visualFrame #freCanvas{border:.5px dashed #fff3f3b0;box-sizing: border-box;}
 #tip{position: fixed;bottom: 0;right: 0;padding: 1em;background: #fff;cursor: pointer;}
 
+#freRuler{
+	pointer-events: none;
+	display: none;
+	color: #fff;
+	height: 10%;
+	width: 100vw;
+	bottom: 0;
+	left: 0;
+	position: fixed;
+}
+#freRuler>div{
+	opacity: 0.1;
+	display: block;
+	position: absolute;
+	width: 1px;
+	top:20%;
+	height: 80%;
+	font-size: 12px;
+	background-color: #fff;
+	text-align: left;
+}
+body:hover #userFocusFreLine{
+	opacity: 0.5!important;
+}
 </style>
 <script>
 if(navigator.userAgent.match(/mobile.+QQ/i)){
@@ -30,22 +54,15 @@ if(navigator.userAgent.match(/mobile.+QQ/i)){
 </script>
 <script src="listen.js"></script>
 
-<div id="canvas_area"></div>
+<div id="canvas_area">
+</div>
+<div id="freRuler">
+	<div id="userFocusFreLine" style="opacity: 0;height: 100%;top:0;position: fixed;"><span id="userFocusFreValue" style="position: absolute;left: 0;"></span></div>
+</div>
 <div id="control">
 	<span>
 		&nbsp;fft size:
 		<select id="fftSize" name="fftSize" >
-			<option value="32">32</option>
-			<option value="64">64</option>
-			<option value="128">128</option>
-			<option value="256">256</option>
-			<option value="512">512</option>
-			<option value="1024">1024</option>
-			<option value="2048">2048</option>
-			<option value="4096">4096</option>
-			<option value="8192">8192</option>
-			<option value="16384">16384</option>
-			<option value="32768">32768</option>
 		</select><span title="must be power of 2, between 32 and 32768"> ⚠️</span>
 	</span>
 	<span>
@@ -136,7 +153,7 @@ var querys=getQuery();
 
 var eles={};//get all eles with an id
 [...document.querySelectorAll('[id]')].forEach(e=>eles[e.id]=e);
-
+var maxHz=0;
 try{
 
 	var audioCtx = new AudioContext();
@@ -158,16 +175,29 @@ musicSource.connect(outputNode);
 var visualGroup=new VisualGroup(audioCtx);
 eles.canvas_area.appendChild(visualGroup.container);
 
-
-
-
+//eles
+const fftSizes=[32,64,128,256,512,1024,2048,4096,8192,16384,32768];
+for(let size of fftSizes){
+	const opt=document.createElement('option');
+	opt.value=size;
+	opt.innerHTML=size;
+	fftSize.appendChild(opt);
+}
+maxHz=audioCtx.sampleRate/2;
+const freRulers=[500,1000,2000,6000,10000,15000,20000];
+for(let fre of freRulers){
+	const div=document.createElement('div');
+	div.innerHTML=`&nbsp;${fre}`;
+	div.style.left=`${fre/maxHz*100}%`;
+	freRuler.appendChild(div);
+}
 
 //events
 eles.audio.addEventListener('playing',e=>visualGroup.paused=false);
 eles.audio.addEventListener('pause',e=>{eles.source.source.value=='music'&&(visualGroup.paused=true)});
 window.addEventListener('resize',()=>{visualGroup.canvasSize()});
 window.addEventListener('load',()=>{visualGroup.canvasSize()});
-window.addEventListener('wheel',e=>e.preventDefault());
+window.addEventListener('wheel',e=>e.preventDefault(),{passive:false});
 eles.control.addEventListener('change',e=>{//listen all changes
 	//console.log('input change',e);
 	var T=e.target;
@@ -180,6 +210,7 @@ eles.control.addEventListener('change',e=>{//listen all changes
 			return;
 		case 'fre':
 			visualGroup.channelFunc('freMode',T.value);
+			freRuler.style.display=T.value?'block':'none';
 			return;
 		case 'wave':
 			visualGroup.channelFunc('waveMode',T.value);
@@ -215,6 +246,13 @@ eles.control.addEventListener('change',e=>{//listen all changes
 		default:
 			console.warn('unhandled change event');
 	}
+});
+window.addEventListener('mousemove',(ev)=>{
+	// console.log(ev)
+	const fre=ev.clientX/window.innerWidth*maxHz;
+	userFocusFreValue.innerHTML=`&nbsp;${fre.toFixed(0)}`;
+	userFocusFreValue.style.top=`${ev.clientY-20}px`;
+	userFocusFreLine.style.left=`${fre/maxHz*100}%`;
 });
 
 

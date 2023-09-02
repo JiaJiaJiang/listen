@@ -5,7 +5,7 @@ class VisualGroup{
 	constructor(audioCtx){
 		this.audioCtx=audioCtx;
 		this.container=document.createElement('div');
-		this.container.id='visualGroup';
+		this.container.id='visualGroupEle';
 		this.channels=[];
 
 		this._splitter=null;
@@ -279,15 +279,9 @@ class Waterfall extends Visual{
 			refreshElement(canvas);
 		}
 		if(canvas.height!=canvas.offsetHeight)canvas.height=canvas.offsetHeight;
-		if(canvas.offsetWidth<this.dataCount){
-			canvas.width=canvas.offsetWidth;
-			this.bufferCanvas.width=this.dataCount;
-			this.bufferMode=true;
-		}else{
-			canvas.width=this.dataCount;
-			this.bufferMode=false;
-		}
-
+		canvas.width=canvas.offsetWidth;
+		this.bufferCanvas.width=this.dataCount;
+		this.bufferMode=true;
 	}
 	draw(){
 		let canvas=this.visualChannel.freCanvas,ctx=this.visualChannel.freCtx;
